@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate platform containers from approved art; never redraw the source."""
-import argparse, hashlib, json, struct, subprocess
+import argparse, hashlib, json, struct, subprocess, zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -13,12 +13,52 @@ def png_size(raw):
     assert depth == 8 and color == 6, "Expected 8-bit RGBA PNG"
     return width, height
 
+def png_alphas(raw):
+    """Decode PNG filters with stdlib only to catch transparent-edge residues."""
+    width, height = png_size(raw)
+    assert raw[28] == 0, "Expected non-interlaced PNG"
+    chunks, at = [], 8
+    while at < len(raw):
+        length = struct.unpack(">I", raw[at:at+4])[0]
+        if raw[at+4:at+8] == b"IDAT":
+            chunks.append(raw[at+8:at+8+length])
+        at += length + 12
+    scan = zlib.decompress(b"".join(chunks))
+    stride, offset, previous = width*4, 0, bytearray(width*4)
+    assert len(scan) == height * (stride+1)
+    alphas = set()
+    for _ in range(height):
+        method = scan[offset]
+        row = bytearray(scan[offset+1:offset+1+stride])
+        assert method in range(5)
+        for i in range(stride):
+            left = row[i-4] if i >= 4 else 0
+            above = previous[i]
+            corner = previous[i-4] if i >= 4 else 0
+            if method == 1: predictor = left
+            elif method == 2: predictor = above
+            elif method == 3: predictor = (left+above)//2
+            elif method == 4:
+                p = left+above-corner
+                a,b,c = abs(p-left),abs(p-above),abs(p-corner)
+                predictor = left if a <= b and a <= c else (above if b <= c else corner)
+            else: predictor = 0
+            row[i] = (row[i]+predictor) & 255
+        for i in range(0, stride, 4):
+            assert row[i+3] != 0 or row[i:i+3] == b"\x00\x00\x00", "Hidden RGB in transparent pixel"
+        alphas.update(row[3::4])
+        previous, offset = row, offset+stride+1
+    return alphas
+
 def check():
     manifest = json.loads((ICONS / "manifest.json").read_text())
     for name, digest in manifest["sha256"].items():
         assert hashlib.sha256((ICONS/name).read_bytes()).hexdigest() == digest, name
     for size in [16,32,64,128,256,512,1024]:
-        assert png_size((ICONS/f"{size}x{size}.png").read_bytes()) == (size,size)
+        raw = (ICONS/f"{size}x{size}.png").read_bytes()
+        assert png_size(raw) == (size,size)
+        alphas = png_alphas(raw)
+        assert 0 in alphas and 255 in alphas and 1 not in alphas and 254 not in alphas, "Alpha quantization residue"
     assert (ICONS/"icon.png").read_bytes() == (ICONS/"1024x1024.png").read_bytes()
     assert (ICONS/"128x128@2x.png").read_bytes() == (ICONS/"256x256.png").read_bytes()
     data = (ICONS/"icon.icns").read_bytes()
@@ -45,11 +85,15 @@ def check():
     for size, name in [(32,"favicon-32.png"),(256,"app-icon.png")]:
         assert (ROOT/"web/public/icons/v2"/name).read_bytes() == (ICONS/f"{size}x{size}.png").read_bytes()
     assert '/icons/v2/favicon-32.png' in (ROOT/"web/index.html").read_text()
-    print("PASS: PNG sizes/RGBA, SHA-256, all 11 ICNS entries, ICO sizes, Tauri paths, favicon and brand assets.")
+    print("PASS: PNG sizes/RGBA/clean alpha, SHA-256, all 11 ICNS entries, ICO sizes, Tauri paths, favicon and brand assets.")
 
 def generate():
     for size in [16,32,64,128,256,512,1024]:
-        subprocess.run(["magick",str(ICONS/"source-approved.png"),"-filter","Lanczos","-resize",f"{size}x{size}","-channel","A","-fx","u<=1/255?0:u>=254/255?1:u","+channel","-depth","8","-define","png:color-type=6",str(ICONS/f"{size}x{size}.png")],check=True)
+        target = ICONS/f"{size}x{size}.png"
+        subprocess.run(["magick",str(ICONS/"source-approved.png"),"-filter","Lanczos","-resize",f"{size}x{size}","-depth","8","-strip","PNG32:"+str(target)],check=True)
+        # Materialize 8-bit pixels before normalization; otherwise resampling can
+        # reintroduce alpha=1 during final PNG quantization.
+        subprocess.run(["magick",str(target),"-channel","A","-fx","u.a<1.5/255?0:u.a>=253.5/255?1:u.a","+channel","-background","black","-alpha","background","-strip","PNG32:"+str(target)],check=True)
     (ICONS/"icon.png").write_bytes((ICONS/"1024x1024.png").read_bytes())
     (ICONS/"128x128@2x.png").write_bytes((ICONS/"256x256.png").read_bytes())
     chunks = []

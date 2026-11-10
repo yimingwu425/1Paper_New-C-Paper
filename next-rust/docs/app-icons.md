@@ -9,7 +9,7 @@ The 2026-11-10 approved icon is used by the native Tauri application, macOS ICNS
 - `icon.icns` contains 11 standard macOS/Retina entries. `icon.ico` contains 16/32/64/128/256 sizes.
 - `web/public/icons/v2/app-icon.png` and `favicon-32.png` use the same approved art.
 - Existing `desktop/icons/icon.png` and `web/public/cpaper.png` remain untouched. Previous commits and published tags are unchanged.
-- `manifest.json` records SHA-256 values. Resizing uses Lanczos; imperceptible alpha 1/255 becomes fully transparent and 254/255 becomes opaque. The artwork is not redrawn.
+- `manifest.json` records SHA-256 values. Resizing uses Lanczos; imperceptible alpha 1/255 becomes fully transparent and 254/255 becomes opaque. Fully transparent pixels have their hidden RGB cleared, preventing fringes in renderers that inspect those channels. The artwork is not redrawn.
 
 ## Regeneration and checking
 
@@ -25,7 +25,7 @@ Regeneration additionally requires ImageMagick 7's `magick` command:
 python3 scripts/app-icons.py
 ```
 
-The script validates PNG dimensions/color type, every hash, ICNS entry lengths and original PNG payloads, ICO size entries, Tauri paths, favicon and in-app image copies. The original source is never overwritten.
+The script validates PNG dimensions/color type, decoded alpha and hidden RGB, every hash, ICNS entry lengths and original PNG payloads, ICO size entries, Tauri paths, favicon and in-app image copies. The original source is never overwritten.
 
 ## Desktop integration
 
