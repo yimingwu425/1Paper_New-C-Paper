@@ -1,0 +1,139 @@
+/* 1mDesign 0.2 · Shared semantic tokens. Keep byte-identical in both apps. */
+:root, [data-theme="light"] {
+  --1m-canvas: #EDF2FA;
+  --1m-surface: #FFFFFF;
+  --1m-raised: #FFFFFF;
+  --1m-surface-subtle: #EDF2F9;
+  --1m-workspace: #F4F7FC;
+  --1m-navigation-surface: #E8EFFA;
+  --1m-inset: #F4F7FC;
+  --1m-text: #182641;
+  --1m-text-secondary: #586981;
+  --1m-text-muted: #586981;
+  --1m-line: #D9E2F0;
+  --1m-control-border: #7586A1;
+  --1m-accent: #165DEE;
+  --1m-accent-hover: #104DCB;
+  --1m-accent-pressed: #0C3FAA;
+  --1m-accent-subtle: #D6E5FF;
+  --1m-on-accent-subtle: #134DA9;
+  --1m-on-accent: #FFFFFF;
+  --1m-success: #16734B;
+  --1m-success-subtle: #EAF6EF;
+  --1m-warning: #8B5709;
+  --1m-warning-subtle: #FFF4DE;
+  --1m-danger: #B42318;
+  --1m-danger-subtle: #FFF0EE;
+  --1m-disabled-text: #586981;
+  --1m-disabled-surface: #E7EDF6;
+  --1m-focus: #165DEE;
+}
+[data-theme="dark"] {
+  --1m-canvas: #0A1120;
+  --1m-surface: #19263B;
+  --1m-raised: #23334D;
+  --1m-surface-subtle: #23334D;
+  --1m-workspace: #111B2D;
+  --1m-navigation-surface: #111D31;
+  --1m-inset: #142036;
+  --1m-text: #E9F0FF;
+  --1m-text-secondary: #AFC0DA;
+  --1m-text-muted: #AFC0DA;
+  --1m-line: #344762;
+  --1m-control-border: #8A9DBA;
+  --1m-accent: #AAC8FF;
+  --1m-accent-hover: #C1D7FF;
+  --1m-accent-pressed: #8EB7F7;
+  --1m-accent-subtle: #294776;
+  --1m-on-accent-subtle: #C4D9FF;
+  --1m-on-accent: #0C316D;
+  --1m-success: #83D6AC;
+  --1m-success-subtle: #163C2C;
+  --1m-warning: #F4C878;
+  --1m-warning-subtle: #43321A;
+  --1m-danger: #FFB4AB;
+  --1m-danger-subtle: #492523;
+  --1m-disabled-text: #AFC0DA;
+  --1m-disabled-surface: #23334D;
+  --1m-focus: #AAC8FF;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) {
+  --1m-canvas: #0A1120;
+  --1m-surface: #19263B;
+  --1m-raised: #23334D;
+  --1m-surface-subtle: #23334D;
+  --1m-workspace: #111B2D;
+  --1m-navigation-surface: #111D31;
+  --1m-inset: #142036;
+  --1m-text: #E9F0FF;
+  --1m-text-secondary: #AFC0DA;
+  --1m-text-muted: #AFC0DA;
+  --1m-line: #344762;
+  --1m-control-border: #8A9DBA;
+  --1m-accent: #AAC8FF;
+  --1m-accent-hover: #C1D7FF;
+  --1m-accent-pressed: #8EB7F7;
+  --1m-accent-subtle: #294776;
+  --1m-on-accent-subtle: #C4D9FF;
+  --1m-on-accent: #0C316D;
+  --1m-success: #83D6AC;
+  --1m-success-subtle: #163C2C;
+  --1m-warning: #F4C878;
+  --1m-warning-subtle: #43321A;
+  --1m-danger: #FFB4AB;
+  --1m-danger-subtle: #492523;
+  --1m-disabled-text: #AFC0DA;
+  --1m-disabled-surface: #23334D;
+  --1m-focus: #AAC8FF;
+}}
+:root {
+  --1m-space-unit: 4px; --1m-radius-control: 999px; --1m-radius-panel: 24px; --1m-radius-pressed: 12px;
+  --1m-motion-feedback: 100ms; --1m-motion-panel: 180ms;
+  --1m-ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --1m-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+}
+
+/* Shared primitives. App layouts use these same tokens in either theme. */
+:root { --blue: var(--1m-accent); --muted: var(--1m-text-secondary); --line: var(--1m-line); color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) { color-scheme: dark; } }
+html, body { color: var(--1m-text); background: var(--1m-workspace); font-family: var(--1m-font-ui); }
+button, input, select, textarea { font-family: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+:where(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid var(--1m-focus); outline-offset: 3px; }
+button:disabled { opacity: 1; color: var(--1m-disabled-text); background-color: var(--1m-disabled-surface); cursor: default; }
+.primary, .secondary, .top-action, .im-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 40px; padding: 10px 20px; border: 1px solid transparent;
+  border-radius: var(--1m-radius-control); box-shadow: none; font-size: 14px; font-weight: 600; line-height: 20px;
+  transition: border-radius var(--1m-motion-panel) var(--1m-ease-standard), background-color var(--1m-motion-feedback) linear;
+}
+.primary, .im-button--primary { background: var(--1m-accent); color: var(--1m-on-accent); }
+.primary:hover:not(:disabled), .im-button--primary:hover:not(:disabled) { background: var(--1m-accent-hover); color: var(--1m-on-accent); transform: none; }
+.primary:active:not(:disabled), .im-button--primary:active:not(:disabled) { background: var(--1m-accent-pressed); border-radius: var(--1m-radius-pressed); }
+.secondary, .top-action, .im-button--tonal { background: var(--1m-surface-subtle); color: var(--1m-text); }
+.secondary:hover:not(:disabled), .top-action:hover:not(:disabled), .im-button--tonal:hover:not(:disabled) { background: var(--1m-accent-subtle); color: var(--1m-on-accent-subtle); transform: none; }
+.secondary:active:not(:disabled), .top-action:active:not(:disabled), .im-button--tonal:active:not(:disabled) { border-radius: var(--1m-radius-pressed); }
+.primary:disabled, .secondary:disabled, .top-action:disabled { background: var(--1m-disabled-surface); color: var(--1m-disabled-text); border-color: var(--1m-line); box-shadow: none; }
+.text-button, .text-action, .inline-link, .back-link { color: var(--1m-accent); }
+.icon-btn, .icon-button { min-width: 40px; min-height: 40px; border-radius: 50%; color: var(--1m-text-secondary); }
+.icon-btn:hover:not(:disabled), .icon-button:hover:not(:disabled) { background: var(--1m-accent-subtle); color: var(--1m-on-accent-subtle); }
+input:not([type="checkbox"]):not([type="radio"]), select, textarea { color: var(--1m-text); background-color: var(--1m-surface); border-color: var(--1m-control-border); border-radius: 12px; }
+input::placeholder, textarea::placeholder { color: var(--1m-text-muted); opacity: 1; }
+input[type="checkbox"], input[type="radio"], progress { accent-color: var(--1m-accent); }
+select option { background: var(--1m-surface); color: var(--1m-text); }
+.im-theme-control { display: inline-flex; align-items: center; gap: 6px; color: var(--1m-text-secondary); font-size: 12px; }
+.im-theme-control select { min-height: 40px; padding: 8px 26px 8px 12px; border: 1px solid transparent; border-radius: 999px; background-color: var(--1m-surface-subtle); color: var(--1m-text); font-size: 12px; cursor: pointer; }
+.im-top-actions { display: flex; align-items: center; gap: 12px; }
+.segmented { border: 0; box-shadow: none; padding: 0; display: flex; gap: 4px; border-radius: 999px; background: transparent; }
+.segmented button { min-height: 44px; padding: 10px 24px; background: var(--1m-surface-subtle); border: 1px solid transparent; border-radius: 6px; color: var(--1m-text); box-shadow: none; }
+.segmented button:first-child { border-radius: 999px 6px 6px 999px; }
+.segmented button:last-child { border-radius: 6px 999px 999px 6px; }
+.segmented button.on { background: var(--1m-accent-subtle); color: var(--1m-on-accent-subtle); box-shadow: none; font-weight: 650; }
+.segmented button:hover:not(:disabled) { border-color: var(--1m-control-border); }
+@media (pointer: coarse) { .primary, .secondary, .top-action, .icon-btn, .icon-button, .im-button, .im-theme-control select { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) {
+  :root { --1m-motion-feedback: 0ms; --1m-motion-panel: 0ms; }
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .primary:active:not(:disabled), .secondary:active:not(:disabled), .top-action:active:not(:disabled) { border-radius: var(--1m-radius-control); }
+}
