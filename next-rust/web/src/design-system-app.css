@@ -1,18 +1,18 @@
 /* C-Paper workspace adaptation of the shared 1mDesign 0.2 foundations. */
-:root { --blue: var(--1m-accent); --muted: var(--1m-text-secondary); --line: var(--1m-line); --paper-sidebar: 208px; }
+:root { --blue: var(--1m-accent); --muted: var(--1m-text-secondary); --line: var(--1m-line); --paper-sidebar: 224px; }
 body { background: var(--1m-workspace); color: var(--1m-text); font-family: var(--1m-font-ui); }
 h1,h2,h3,h4 { color: var(--1m-text); }
-.sidebar { width: var(--paper-sidebar); padding: 28px 15px 20px; background: color-mix(in srgb, var(--1m-surface) 82%, var(--1m-navigation-surface)); border-color: var(--1m-line); }
-.sidebar .brand { padding: 0 10px 28px; font-size: 20px; letter-spacing: -.5px; }
-.sidebar .brand img { width: 32px; height: 32px; border-radius: 9px; }
-.sidebar nav { gap: 6px; }
-.sidebar nav button,.sidebar-secondary { min-height: 44px; padding: 12px 14px; border-radius: var(--1m-radius-control); color: var(--1m-text-secondary); font-size: 14px; }
+.sidebar { width: var(--paper-sidebar); padding: 32px 18px 22px; background: var(--1m-navigation-surface); border-color: var(--1m-line); }
+.sidebar .brand { padding: 8px 10px 36px; font-size: 23px; letter-spacing: -.6px; }
+.sidebar .brand img { width: 36px; height: 36px; border-radius: 10px; }
+.sidebar nav { gap: 8px; }
+.sidebar nav button,.sidebar-secondary { min-height: 46px; padding: 12px 16px; border-radius: var(--1m-radius-control); color: var(--1m-text-secondary); font-size: 14px; }
 .sidebar nav button:hover,.sidebar-secondary:hover { background: var(--1m-surface-subtle); color: var(--1m-text); }
-.sidebar nav button.selected,.sidebar-secondary.selected { background: color-mix(in srgb, var(--1m-accent-subtle) 65%, var(--1m-surface)); color: var(--1m-on-accent-subtle); }
+.sidebar nav button.selected,.sidebar-secondary.selected { background: var(--1m-accent-subtle); color: var(--1m-on-accent-subtle); }
 .sidebar-favorites { border-color: var(--1m-line); margin: 30px 12px 20px; }
 .sidebar-favorites>span,.sidebar-favorites button,.sidebar-favorites strong { color: var(--1m-text-secondary); }
 .sidebar-favorites button { padding: 10px 0; }
-.topbar { margin-left: var(--paper-sidebar); height: 65px; padding: 0 35px; background: var(--1m-workspace); border-color: var(--1m-line); backdrop-filter: none; }
+.topbar { margin-left: var(--paper-sidebar); height: 72px; padding: 0 36px; background: var(--1m-workspace); border-color: var(--1m-line); backdrop-filter: none; }
 .topbar>strong { color: var(--1m-text-secondary); font-size: 14px; }
 .toolbar-actions { display: flex; align-items: center; gap: 20px; }
 .health { color: var(--1m-text-secondary); font-size: 12px; }
@@ -159,9 +159,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 }
 
 /* Search is an open, focused entry point, not a settings card. */
-body:has(.search-workspace) { background: var(--1m-surface); }
-body:has(.search-workspace) .topbar { background: var(--1m-surface); }
-.search-workspace { padding: 0 4%; min-height: calc(100vh - 129px); }
+body:has(.search-workspace) { background: var(--1m-workspace); }
+
+.search-workspace { position: relative; isolation: isolate; padding: 0 4%; min-height: calc(100vh - 136px); }
 .search-workspace .hero { max-width: 880px; margin: 0 auto; padding: 45px 0 25px; text-align: center; background: transparent; border: 0; border-radius: 0; }
 .search-workspace .hero h1 { font-size: 32px; font-weight: 600; letter-spacing: -.8px; }
 .search-workspace .hero>p { margin-top: 12px; font-size: 14px; line-height: 1.8; }
@@ -185,7 +185,7 @@ body:has(.search-workspace) .topbar { background: var(--1m-surface); }
 .search-workspace>.search-utilities, .search-workspace>.source-context { justify-content: center; max-width: 880px; margin: 14px auto 24px; font-size: 11px; }
 .search-workspace>.source-context .text-button { color: var(--1m-text-secondary); font-size: 11px; }
 .search-workspace>.source-context .text-button:hover { color: var(--1m-accent); }
-.search-workspace .results { background: transparent; border-radius: 0; padding: 18px 0; }
+
 .search-workspace:has(.hero.compact)>.search-utilities { margin: 0 auto 8px; }
 .search-workspace:has(.hero.compact)>.source-context { margin: 0 auto 14px; }
 @media(max-width:650px) {
@@ -203,4 +203,40 @@ body:has(.search-workspace) .topbar { background: var(--1m-surface); }
 }
 @media(prefers-reduced-motion:reduce) {
  .search-workspace .hero .search-hero button:active:not(:disabled) { border-radius: 15px; }
+}
+
+/* Blue atmosphere, a single paper-like search surface, and a quiet subject current. */
+.search-workspace::before { content: ''; position: absolute; z-index: -1; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 76% 28%, color-mix(in srgb, var(--1m-accent-subtle) 85%, transparent), transparent 61%), radial-gradient(ellipse at 24% 64%, color-mix(in srgb, var(--1m-accent-subtle) 42%, transparent), transparent 58%); }
+.search-workspace .hero { padding-top: 48px; }
+.search-workspace .hero .search-hero { box-shadow: 0 12px 36px color-mix(in srgb, var(--1m-accent) 9%, transparent), 0 2px 5px color-mix(in srgb, var(--1m-text) 3%, transparent); border-color: color-mix(in srgb, var(--1m-surface) 80%, var(--1m-line)); }
+.search-workspace .hero .search-hero:focus-within { border-color: var(--1m-focus); box-shadow: 0 0 0 3px var(--1m-accent-subtle), 0 12px 36px color-mix(in srgb, var(--1m-accent) 10%, transparent); }
+.search-workspace .subject-flow { max-width: 710px; margin: 24px auto 0; position: relative; }
+.subject-flow-viewport { max-width: 100%; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent); }
+.subject-flow-viewport::-webkit-scrollbar { display: none; }
+.subject-flow-viewport:focus-within { mask-image: none; }
+.search-workspace .subject-suggestions { width: max-content; min-width: 100%; margin: 0; padding: 5px 8px; flex-wrap: nowrap; justify-content: center; gap: 12px; }
+.search-workspace .subject-suggestions button { flex: 0 0 auto; min-height: 44px; max-width: none; padding: 10px 16px; border-radius: 16px; gap: 10px; background: color-mix(in srgb, var(--1m-surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--1m-surface) 78%, var(--1m-line)); color: var(--1m-text-secondary); white-space: nowrap; }
+.search-workspace .subject-suggestions .subject-name { font-size: 13px; color: inherit; }
+.search-workspace .subject-suggestions .subject-code { font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: .04em; opacity: .85; }
+.search-workspace .subject-suggestions button:hover,.search-workspace .subject-suggestions button:focus-visible { background: var(--1m-surface); color: var(--1m-on-accent-subtle); border-color: var(--1m-accent-subtle); }
+.subject-flow-control { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; padding: 5px 8px; min-height: 32px; border-radius: 8px; font-size: 11px; background: transparent; color: var(--1m-text-secondary); }
+.subject-flow-control:hover { background: var(--1m-accent-subtle); color: var(--1m-on-accent-subtle); }
+.search-workspace .subject-flow:is(.filtered,[data-motion="reduced"]) .subject-flow-viewport { overflow: visible; mask-image: none; }
+.search-workspace .subject-flow:is(.filtered,[data-motion="reduced"]) .subject-suggestions { width: 100%; flex-wrap: wrap; }
+.search-workspace .subject-flow:is(.filtered,[data-motion="reduced"]) .subject-suggestions button { max-width: 100%; white-space: normal; }
+.search-workspace .catalogue-note { margin-top: 8px; font-size: 12px; }
+.search-workspace>.source-context { margin-top: 8px; font-size: 12px; }
+.search-workspace>.source-context .text-button { font-size: 12px; }
+.search-workspace:has(.hero.compact)::before { opacity: .45; }
+@media(max-width:650px) {
+ .search-workspace .hero { padding-top: 32px; }
+ .search-workspace .hero .search-hero input { font-size: 16px; }
+ .search-workspace .subject-flow { margin-top: 18px; }
+ .search-workspace .subject-suggestions { gap: 8px; }
+ .search-workspace .subject-suggestions button { padding-inline: 13px; }
+ .search-workspace .subject-suggestions .subject-name { font-size: 12px; }
+ .search-workspace .results { padding: 20px; }
+}
+@media(prefers-reduced-motion:reduce) {
+ .subject-flow *, .search-workspace .search-hero, .search-workspace .search-hero button { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }

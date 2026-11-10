@@ -42,6 +42,7 @@ describe('1mDesign appearance integration',()=>{
   render(<App/>);
   expect(screen.getByRole('main').classList.contains('search-workspace')).toBe(true);
   fireEvent.click(await screen.findByText('Physics'));
+  expect(document.activeElement).toBe(screen.getByRole('spinbutton',{name:'年份'}));
   await waitFor(()=>expect((screen.getByRole('button',{name:'查找试卷'}) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole('button',{name:'查找试卷'}));
   await screen.findByText('Paper 22');

@@ -3,6 +3,7 @@ import {ArrowRight, Check, RefreshCw, Search} from 'lucide-react';
 import {request, resolveSubject, Subject} from './api';
 import {useCatalogue} from './useCatalogue';
 import {sourceName} from './SourceSettings';
+import {SubjectFlow} from './SubjectFlow';
 export type SearchQuery = {subject: Subject; year: string; season: string};
 type Season = {season: string; status: 'available' | 'empty' | 'unknown'; file_count: number; error?: string};
 export const seasonName = (value: string) => ({Mar: '2–3 月', Jun: '5–6 月', Nov: '10–11 月'}[value] || value);
@@ -15,6 +16,8 @@ export function SubjectSearch({loading, compact, onSearch, onInvalidate, onSelec
   const [seasons, setSeasons] = useState<Season[]>([]), [checking, setChecking] = useState(false), [error, setError] = useState('');
   const [retry, setRetry] = useState(0),[manualSeason,setManualSeason]=useState(false);
   const availabilityId = useRef(0), controller = useRef<AbortController | null>(null);
+  const yearInput = useRef<HTMLInputElement>(null), focusYear = useRef(false);
+  useEffect(() => {if(subject && focusYear.current){yearInput.current?.focus();focusYear.current=false}}, [subject]);
   useEffect(()=>{if(initialSubject){setSubject({...initialSubject});setQuery(initialSubject.code+' '+initialSubject.name);onSelected?.(initialSubject)}},[initialSubject?.code]);
   useEffect(() => {
     const id = ++availabilityId.current; controller.current?.abort();
@@ -32,7 +35,7 @@ export function SubjectSearch({loading, compact, onSearch, onInvalidate, onSelec
   function choose(value: string) {
     const chosen = resolveSubject(value, catalogue);
     if (!chosen) {setError('请输入四位科目代码，或从题源目录选择科目。'); return}
-    invalidate(); setSubject({...chosen}); onSelected?.(chosen); setQuery(chosen.code + ' ' + chosen.name); setError('');
+    invalidate(); focusYear.current = true; setSubject({...chosen}); onSelected?.(chosen); setQuery(chosen.code + ' ' + chosen.name); setError('');
   }
   const normalized = query.toLowerCase().trim();
   const suggestions = catalogue.filter(s => !normalized || s.code.includes(normalized) || s.name.toLowerCase().includes(normalized)).slice(0, 12);
@@ -42,13 +45,14 @@ export function SubjectSearch({loading, compact, onSearch, onInvalidate, onSelec
     <p>输入科目，确认年份与考季后查询。</p>
     <form className="search-hero" onSubmit={e => {e.preventDefault(); choose(subject ? subject.code : query)}}>
       <Search size={21}/><input aria-label="科目名称或代码" placeholder="搜索题源科目名称或四位代码" value={query}
+        onKeyDown={e => {if(e.key==='Enter' && (e.nativeEvent.isComposing || e.keyCode===229)) e.preventDefault()}}
         onChange={e => {invalidate(); setQuery(e.target.value); setSubject(null); onSelected?.(null); setSeason(''); setSeasons([])}}/>
       <button aria-label="确认科目" type="submit"><ArrowRight size={21}/></button>
     </form>
-    {!subject && <><div className="subject-suggestions">{suggestions.map(s => <button key={s.code} onClick={() => choose(s.code)}>{s.name}<span>{s.code}</span></button>)}</div>
+    {!subject && <><SubjectFlow subjects={suggestions} filtered={!!normalized} onChoose={choose}/>
       <p className="catalogue-note">{catalogueError ? `题源目录暂不可用：${catalogueError}。仍可手输四位代码。` : catalogue.length ? `${catalogueSource?sourceName(catalogueSource)+' ':''}实际目录 · ${catalogue.length} 门科目 · 输入名称筛选` : '正在读取科目目录…'}</p>{catalogueError && <button className="text-button" onClick={reloadCatalogue}><RefreshCw size={13}/>重新读取目录</button>}</>}
     {subject && <div className="conditions"><div className="subject-confirmed"><Check size={15}/>{subject.name}<span>{subject.code}</span></div>
-      <label>查询年份<input aria-label="年份" type="number" min="2000" max="2099" value={year} onChange={e => {invalidate(); setYear(e.target.value); setSeason(''); setSeasons([])}}/></label>
+      <label>查询年份<input ref={yearInput} aria-label="年份" type="number" min="2000" max="2099" value={year} onChange={e => {invalidate(); setYear(e.target.value); setSeason(''); setSeasons([])}}/></label>
       <label>{manualSeason?'手动选择考季':'已核对考季'}<select aria-label="考季" value={season} disabled={checking} onChange={e => {onInvalidate(); setSeason(e.target.value)}}>
         <option value="">{checking ? '正在检查这一年…' : manualSeason?'请选择考季（尚未确认有卷）':'选择已确认有卷的考季'}</option>
         {(manualSeason?['Mar','Jun','Nov'].map(season=>seasons.find(s=>s.season===season)??{season,status:'unknown',file_count:0}):seasons.filter(s => s.status === 'available')).map(s => <option key={s.season} value={s.season}>{seasonName(s.season)} · {s.status==='available'?s.file_count+' 份':s.status==='empty'?'未找到':'未确认'}</option>)}
