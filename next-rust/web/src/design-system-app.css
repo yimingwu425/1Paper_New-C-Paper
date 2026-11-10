@@ -214,6 +214,9 @@ body:has(.search-workspace) { background: var(--1m-workspace); }
 .subject-flow-viewport { max-width: 100%; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent); }
 .subject-flow-viewport::-webkit-scrollbar { display: none; }
 .subject-flow-viewport:focus-within { mask-image: none; }
+.subject-flow-lanes { display: grid; gap: 6px; min-width: 0; }
+.search-workspace .subject-flow-viewport:nth-child(2) .subject-suggestions { padding-inline: 42px 18px; }
+.search-workspace .subject-flow-viewport:nth-child(3) .subject-suggestions { padding-inline: 20px 34px; }
 .search-workspace .subject-suggestions { width: max-content; min-width: 100%; margin: 0; padding: 5px 8px; flex-wrap: nowrap; justify-content: center; gap: 12px; }
 .search-workspace .subject-suggestions button { flex: 0 0 auto; min-height: 44px; max-width: none; padding: 10px 16px; border-radius: 16px; gap: 10px; background: color-mix(in srgb, var(--1m-surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--1m-surface) 78%, var(--1m-line)); color: var(--1m-text-secondary); white-space: nowrap; }
 .search-workspace .subject-suggestions .subject-name { font-size: 13px; color: inherit; }

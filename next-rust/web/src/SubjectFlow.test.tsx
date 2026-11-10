@@ -86,4 +86,34 @@ describe('flowing subject shortcuts', () => {
     callback(180);callback(260);expect(viewport.scrollLeft).toBe(600);
     callback(340);expect(viewport.scrollLeft).toBeLessThan(600);expect(viewport.scrollLeft).toBeGreaterThan(590);
   });
+  it('splits a desktop catalogue into two rows with opposite motion and pauses both on interaction', () => {
+    const catalogue=Array.from({length:12},(_,i)=>({code:String(9700+i),name:'Subject '+i}));
+    const {container}=render(<SubjectFlow subjects={catalogue} filtered={false} onChoose={vi.fn()}/>);
+    const rows=Array.from(container.querySelectorAll<HTMLElement>('.subject-flow-viewport'));
+    expect(rows).toHaveLength(2);
+    rows.forEach(row=>Object.defineProperties(row,{scrollWidth:{value:1000},clientWidth:{value:400}}));
+    callback(100);expect(rows.map(row=>row.scrollLeft)).toEqual([0,600]);
+    callback(180);expect(rows[0].scrollLeft).toBeGreaterThan(0);expect(rows[1].scrollLeft).toBeLessThan(600);
+    const stopped=rows.map(row=>row.scrollLeft);fireEvent.pointerEnter(rows[0]);callback(260);
+    expect(rows.map(row=>row.scrollLeft)).toEqual(stopped);
+    const codes=Array.from(container.querySelectorAll<HTMLElement>('[data-subject-code]')).map(button=>button.dataset.subjectCode);
+    expect(codes).toEqual(catalogue.map(subject=>subject.code));expect(new Set(codes).size).toBe(12);
+  });
+  it('uses three narrow-screen rows and preserves focused subjects when regrouping or reducing motion', () => {
+    let narrowChange=()=>{},reducedChange=()=>{};
+    const narrow={matches:false,addEventListener:vi.fn((_event:string,fn:()=>void)=>{narrowChange=fn}),removeEventListener:vi.fn()};
+    const reduced={matches:false,addEventListener:vi.fn((_event:string,fn:()=>void)=>{reducedChange=fn}),removeEventListener:vi.fn()};
+    vi.stubGlobal('matchMedia',vi.fn((query:string)=>query.includes('max-width')?narrow:reduced));
+    const catalogue=Array.from({length:12},(_,i)=>({code:String(9700+i),name:'Subject '+i}));
+    const {container}=render(<SubjectFlow subjects={catalogue} filtered={false} onChoose={vi.fn()}/>);
+    const name='Subject 5 9705';act(()=>screen.getByRole('button',{name}).focus());
+    act(()=>{narrow.matches=true;narrowChange()});
+    expect(container.querySelectorAll('.subject-flow-viewport')).toHaveLength(3);
+    expect(document.activeElement).toBe(screen.getByRole('button',{name}));
+    act(()=>{reduced.matches=true;reducedChange()});
+    expect(container.querySelectorAll('.subject-flow-viewport')).toHaveLength(1);
+    expect(document.activeElement).toBe(screen.getByRole('button',{name}));
+    expect(screen.getAllByRole('button')).toHaveLength(12);
+    expect(container.querySelector('[data-motion="reduced"]')).toBeTruthy();
+  });
 });
