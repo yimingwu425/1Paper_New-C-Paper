@@ -8,7 +8,18 @@ pub(super) struct CancelFlag {
 impl CancelFlag {
     fn cancel(&self) {
         self.flag.store(true, Ordering::SeqCst);
-        self.notify.notify_one()
+        self.notify.notify_waiters()
+    }
+    async fn cancelled(&self) {
+        loop {
+            let notified = self.notify.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            if self.is_cancelled() {
+                return;
+            }
+            notified.await;
+        }
     }
     fn is_cancelled(&self) -> bool {
         self.flag.load(Ordering::SeqCst)
@@ -44,6 +55,16 @@ pub(super) struct DownloadJob {
     pub(super) failed: usize,
     pub(super) cancelled: usize,
     pub(super) interrupted: usize,
+    #[serde(default = "default_source_mode")]
+    pub(super) source_mode: String,
+    #[serde(default = "default_concurrency")]
+    pub(super) download_concurrency: usize,
+    #[serde(default = "default_rate")]
+    pub(super) requests_per_second: u32,
+    #[serde(default)]
+    pub(super) cooldown_until_ms: Option<u64>,
+    #[serde(default)]
+    pub(super) waiting_reason: Option<String>,
 }
 impl DownloadJob {
     fn recount(&mut self) {
@@ -87,7 +108,7 @@ pub(super) async fn restore_queue(app: &App) -> Result<(), ErrApi> {
     let mut job: DownloadJob = read_control(&path).await?;
     validate_job(&job)?;
     for item in &mut job.items {
-        if ["queued", "downloading"].contains(&item.status.as_str()) {
+        if ["queued", "waiting", "downloading"].contains(&item.status.as_str()) {
             item.status = "interrupted".into();
             item.error = Some("上次运行中断，请核对后重试；未自动续传".into())
         }
@@ -113,15 +134,14 @@ pub(super) async fn jobs_get(State(app): State<App>) -> Json<Value> {
     Json(json!({"job":app.queue.lock().await.job}))
 }
 fn trusted_file(file: &PreviewFile) -> bool {
-    parse(&file.filename).is_some()
-        && file.id == file.filename
-        && file.source_url
-            == format!(
-                "https://cie.fraft.cn/obj/Common/Fetch/redir/{}",
-                file.filename
-            )
+    validate_paper(&file.paper())
 }
 fn validate_job(job: &DownloadJob) -> Result<(), ErrApi> {
+    validate_limits(
+        &job.source_mode,
+        job.download_concurrency,
+        job.requests_per_second,
+    )?;
     if job.id.len() != 64
         || !job.id.bytes().all(|b| b.is_ascii_hexdigit())
         || job.id != job.preview_token
@@ -177,6 +197,11 @@ pub(super) async fn jobs_start(
             "部分年份考季查询失败；请明确确认仅下载已成功组合",
         ));
     }
+    validate_limits(
+        &preview.source_mode,
+        preview.download_concurrency,
+        preview.requests_per_second,
+    )?;
     if preview.files.iter().any(|f| !trusted_file(f)) {
         return Err(bad("清单含未授权来源或文件标识"));
     }
@@ -227,6 +252,15 @@ pub(super) async fn jobs_start(
         failed: 0,
         cancelled: 0,
         interrupted: 0,
+        source_mode: preview.source_mode,
+        download_concurrency: preview.download_concurrency,
+        requests_per_second: preview.requests_per_second,
+        cooldown_until_ms: queue
+            .job
+            .as_ref()
+            .and_then(|old| old.cooldown_until_ms)
+            .filter(|until| *until > epoch_ms()),
+        waiting_reason: None,
     };
     job.recount();
     persist(&app, &job).await?;
@@ -252,8 +286,9 @@ pub(super) async fn jobs_cancel(
     let job = queue.job.as_mut().unwrap();
     if job.status == "running" {
         job.status = "cancelled".into();
+        job.waiting_reason = None;
         for item in &mut job.items {
-            if ["queued", "downloading"].contains(&item.status.as_str()) {
+            if ["queued", "waiting", "downloading"].contains(&item.status.as_str()) {
                 item.status = "cancelled".into();
                 item.error = Some("用户取消；禁止迟到提交".into())
             }
@@ -305,17 +340,164 @@ pub(super) async fn jobs_retry(
     tokio::spawn(run_job(app, id, cancel));
     Ok(Json(json!({"job":result})))
 }
+fn epoch_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+fn retry_after(value: Option<&str>, now: std::time::SystemTime) -> std::time::Duration {
+    let seconds = value
+        .and_then(|v| {
+            v.trim().parse::<u64>().ok().or_else(|| {
+                httpdate::parse_http_date(v)
+                    .ok()
+                    .map(|date| date.duration_since(now).unwrap_or_default().as_secs())
+            })
+        })
+        .unwrap_or(30)
+        .clamp(5, 120);
+    std::time::Duration::from_secs(seconds)
+}
+struct GateState {
+    next: tokio::time::Instant,
+    cooldown: tokio::time::Instant,
+}
+struct RequestGate {
+    state: Mutex<GateState>,
+    spacing: std::time::Duration,
+}
+impl RequestGate {
+    fn new(rate: u32, cooldown_ms: Option<u64>) -> Self {
+        let now = tokio::time::Instant::now();
+        Self {
+            state: Mutex::new(GateState {
+                next: now,
+                cooldown: now
+                    + std::time::Duration::from_millis(
+                        cooldown_ms
+                            .unwrap_or(0)
+                            .saturating_sub(epoch_ms())
+                            .min(120_000),
+                    ),
+            }),
+            spacing: std::time::Duration::from_secs_f64(1.0 / rate.clamp(1, 20) as f64),
+        }
+    }
+    async fn acquire(
+        &self,
+        app: &App,
+        id: &str,
+        index: usize,
+        cancel: &CancelFlag,
+    ) -> Result<(), ErrApi> {
+        loop {
+            if cancel.is_cancelled() {
+                return Err(bad("cancelled"));
+            }
+            let (wait, cooling) = {
+                let mut state = self.state.lock().await;
+                let now = tokio::time::Instant::now();
+                let ready = state.next.max(state.cooldown);
+                if ready <= now {
+                    state.next = now + self.spacing;
+                    (None, false)
+                } else {
+                    (Some(ready - now), state.cooldown > now)
+                }
+            };
+            {
+                let mut queue = app.queue.lock().await;
+                let Some(job) = queue
+                    .job
+                    .as_mut()
+                    .filter(|j| j.id == id && j.status == "running")
+                else {
+                    return Err(bad("队列已停止"));
+                };
+                if cancel.is_cancelled() {
+                    return Err(bad("cancelled"));
+                }
+                job.items[index].status = if wait.is_some() {
+                    "waiting"
+                } else {
+                    "downloading"
+                }
+                .into();
+                job.waiting_reason = if cooling {
+                    Some("429".into())
+                } else if wait.is_some() {
+                    Some("rate_limit".into())
+                } else {
+                    None
+                };
+                if !cooling
+                    && job
+                        .cooldown_until_ms
+                        .is_some_and(|until| until <= epoch_ms())
+                {
+                    job.cooldown_until_ms = None;
+                }
+            }
+            let Some(wait) = wait else {
+                return Ok(());
+            };
+            tokio::select! { _ = cancel.cancelled() => return Err(bad("cancelled")), _ = tokio::time::sleep(wait.min(std::time::Duration::from_millis(100))) => {} }
+        }
+    }
+    async fn cooldown(&self, app: &App, id: &str, delay: std::time::Duration) {
+        {
+            let mut state = self.state.lock().await;
+            state.cooldown = state.cooldown.max(tokio::time::Instant::now() + delay);
+        }
+        let mut queue = app.queue.lock().await;
+        if let Some(job) = queue
+            .job
+            .as_mut()
+            .filter(|j| j.id == id && j.status == "running")
+        {
+            job.cooldown_until_ms = Some(
+                job.cooldown_until_ms
+                    .unwrap_or(0)
+                    .max(epoch_ms() + delay.as_millis() as u64),
+            );
+            job.waiting_reason = Some("429".into());
+        }
+    }
+}
 async fn stream_pdf(
     app: &App,
     id: &str,
     index: usize,
     p: &Paper,
     cancel: &CancelFlag,
+    gate: &RequestGate,
 ) -> Result<Vec<u8>, ErrApi> {
     if cancel.is_cancelled() {
         return Err(bad("cancelled"));
     }
-    let response=tokio::select!{_=cancel.notify.notified()=>return Err(bad("cancelled")),r=app.client.get(&p.source_url).send()=>r.map_err(upstream)?}.error_for_status().map_err(upstream)?;
+    gate.acquire(app, id, index, cancel).await?;
+    let response = tokio::select! {_=cancel.cancelled()=>return Err(bad("cancelled")),r=app.client.get(download_url(p)?).send()=>r.map_err(|_| upstream("下载请求失败；未自动重试"))?};
+    if response.status() == StatusCode::TOO_MANY_REQUESTS {
+        let delay = retry_after(
+            response
+                .headers()
+                .get("retry-after")
+                .and_then(|h| h.to_str().ok()),
+            std::time::SystemTime::now(),
+        );
+        gate.cooldown(app, id, delay).await;
+        return Err(upstream(format!(
+            "HTTP 429：共享队列冷却{}秒；此文件保留失败，需手动重试",
+            delay.as_secs()
+        )));
+    }
+    let response = response.error_for_status().map_err(|e| {
+        upstream(format!(
+            "下载HTTP错误：{}",
+            e.status().map(|s| s.as_u16()).unwrap_or(0)
+        ))
+    })?;
     let total = response.content_length();
     if total.unwrap_or(0) > 25 * 1024 * 1024 {
         return Err(upstream("PDF超过25MiB"));
@@ -326,9 +508,10 @@ async fn stream_pdf(
         if cancel.is_cancelled() {
             return Err(bad("cancelled"));
         }
-        let chunk = tokio::select! {_=cancel.notify.notified()=>return Err(bad("cancelled")),c=stream.next()=>c};
+        let chunk =
+            tokio::select! {_=cancel.cancelled()=>return Err(bad("cancelled")),c=stream.next()=>c};
         let Some(chunk) = chunk else { break };
-        let chunk = chunk.map_err(upstream)?;
+        let chunk = chunk.map_err(|_| upstream("PDF流读取失败"))?;
         if bytes.len() + chunk.len() > 25 * 1024 * 1024 {
             return Err(upstream("PDF超过25MiB"));
         }
@@ -348,12 +531,13 @@ async fn stream_pdf(
 }
 fn interrupt_remaining(job: &mut DownloadJob) {
     for item in &mut job.items {
-        if ["queued", "downloading"].contains(&item.status.as_str()) {
+        if ["queued", "waiting", "downloading"].contains(&item.status.as_str()) {
             item.status = "interrupted".into();
             item.error = Some("队列持久化失败，核对后手动重试".into());
         }
     }
     job.status = "failed".into();
+    job.waiting_reason = None;
     job.recount();
 }
 async fn safe_parent(base: &std::path::Path, parent: &std::path::Path) -> Result<PathBuf, ErrApi> {
@@ -386,79 +570,59 @@ async fn safe_parent(base: &std::path::Path, parent: &std::path::Path) -> Result
     Ok(path)
 }
 async fn run_job(app: App, id: String, cancel: Arc<CancelFlag>) {
-    let count = app
-        .queue
-        .lock()
-        .await
+    let (count, concurrency, rate, cooldown) = {
+        let queue = app.queue.lock().await;
+        let Some(job) = queue
+            .job
+            .as_ref()
+            .filter(|j| j.id == id && j.status == "running")
+        else {
+            return;
+        };
+        (
+            job.items.len(),
+            job.download_concurrency.clamp(1, 16),
+            job.requests_per_second.clamp(1, 20),
+            job.cooldown_until_ms,
+        )
+    };
+    let gate = Arc::new(RequestGate::new(rate, cooldown));
+    futures_util::stream::iter(0..count)
+        .map(|index| run_item(app.clone(), id.clone(), index, cancel.clone(), gate.clone()))
+        .buffer_unordered(concurrency)
+        .collect::<Vec<_>>()
+        .await;
+    let mut queue = app.queue.lock().await;
+    if cancel.is_cancelled() {
+        return;
+    }
+    if let Some(job) = queue
         .job
-        .as_ref()
-        .filter(|j| j.id == id)
-        .map(|j| j.items.len())
-        .unwrap_or(0);
-    for index in 0..count {
-        let file = {
-            let mut queue = app.queue.lock().await;
-            if cancel.is_cancelled() {
-                return;
-            }
-            let Some(job) = queue
-                .job
-                .as_mut()
-                .filter(|j| j.id == id && j.status == "running")
-            else {
-                return;
-            };
-            if job.items[index].status != "queued" {
-                continue;
-            }
-            job.items[index].status = "downloading".into();
-            if let Err((_, Json(e))) = persist(&app, job).await {
-                job.items[index].status = "failed".into();
-                job.items[index].error = Some(format!("队列持久化失败：{}", e["error"]));
-                interrupt_remaining(job);
-                return;
-            }
-            job.items[index].file.clone()
-        };
-        let record_path = app.root.join(format!("{}.download.json", file.filename));
-        let verified = if record_path.exists() {
-            match read_control::<Value>(&record_path).await {
-                Ok(record) if record["filename"] == file.filename => {
-                    verified_pdf_at(
-                        std::path::Path::new(&file.destination),
-                        record["sha256"].as_str().unwrap_or(""),
-                    )
-                    .await
-                }
-                _ => None,
-            }
+        .as_mut()
+        .filter(|j| j.id == id && j.status == "running")
+    {
+        job.recount();
+        job.waiting_reason = None;
+        job.status = if job.failed > 0 {
+            "failed"
         } else {
-            None
-        };
-        if let Some(size) = verified {
-            let mut queue = app.queue.lock().await;
-            if cancel.is_cancelled() {
-                return;
-            }
-            if let Some(job) = queue
-                .job
-                .as_mut()
-                .filter(|j| j.id == id && j.status == "running")
-            {
-                job.items[index].status = "completed".into();
-                job.items[index].downloaded_bytes = size;
-                job.items[index].total_bytes = Some(size);
-                job.items[index].reused_existing = true;
-                job.recount();
-                if persist(&app, job).await.is_err() {
-                    interrupt_remaining(job);
-                    return;
-                }
-            }
-            continue;
+            "completed"
         }
-        let result = stream_pdf(&app, &id, index, &file.paper(), &cancel).await;
-        // Cancellation and the final commit share this mutex. Acknowledged cancel cannot be followed by a commit.
+        .into();
+        if persist(&app, job).await.is_err() {
+            interrupt_remaining(job);
+        }
+    }
+}
+
+async fn run_item(
+    app: App,
+    id: String,
+    index: usize,
+    cancel: Arc<CancelFlag>,
+    gate: Arc<RequestGate>,
+) {
+    let file = {
         let mut queue = app.queue.lock().await;
         if cancel.is_cancelled() {
             return;
@@ -470,60 +634,107 @@ async fn run_job(app: App, id: String, cancel: Arc<CancelFlag>) {
         else {
             return;
         };
-        let result = match result {
-            Ok(bytes) => {
-                let parent = PathBuf::from(&file.destination)
-                    .parent()
-                    .unwrap()
-                    .to_path_buf();
-                match safe_parent(std::path::Path::new(&job.save_directory), &parent).await {
-                    Ok(real) => {
-                        commit_pdf(&app, &file.paper(), &bytes, &real.join(&file.filename)).await
-                    }
-                    Err(e) => Err(e),
-                }
-            }
-            Err(e) => Err(e),
-        };
-        match result {
-            Ok(_) => {
-                job.items[index].status = "completed".into();
-                job.items[index].error = None
-            }
-            Err((_, Json(e))) => {
-                job.items[index].status = "failed".into();
-                job.items[index].error = Some(e["error"].as_str().unwrap_or("下载失败").into())
-            }
-        }
-        job.recount();
-        if let Err((_, Json(e))) = persist(&app, job).await {
-            interrupt_remaining(job);
-            job.items[index].error = Some(format!(
-                "文件操作已结束但队列落盘失败，请核对目标：{}",
-                e["error"]
-            ));
+        if job.items[index].status != "queued" {
             return;
         }
+        job.items[index].status = "downloading".into();
+        if let Err((_, Json(e))) = persist(&app, job).await {
+            job.items[index].status = "failed".into();
+            job.items[index].error = Some(format!("队列持久化失败：{}", e["error"]));
+            interrupt_remaining(job);
+            cancel.cancel();
+            return;
+        }
+        job.items[index].file.clone()
+    };
+    let record_path = app.root.join(format!("{}.download.json", file.filename));
+    let verified = if record_path.exists() {
+        match read_control::<Value>(&record_path).await {
+            Ok(record)
+                if record["filename"] == file.filename
+                    && record_verifies_source(&record, &file.source_url) =>
+            {
+                verified_pdf_at(
+                    std::path::Path::new(&file.destination),
+                    record["sha256"].as_str().unwrap_or(""),
+                )
+                .await
+            }
+            _ => None,
+        }
+    } else {
+        None
+    };
+    if let Some(size) = verified {
+        let mut queue = app.queue.lock().await;
+        if cancel.is_cancelled() {
+            return;
+        }
+        if let Some(job) = queue
+            .job
+            .as_mut()
+            .filter(|j| j.id == id && j.status == "running")
+        {
+            job.items[index].status = "completed".into();
+            job.items[index].downloaded_bytes = size;
+            job.items[index].total_bytes = Some(size);
+            job.items[index].reused_existing = true;
+            job.recount();
+            if persist(&app, job).await.is_err() {
+                interrupt_remaining(job);
+                cancel.cancel();
+                return;
+            }
+        }
+        return;
     }
+    let result = stream_pdf(&app, &id, index, &file.paper(), &cancel, &gate).await;
+    // Cancellation and the final commit share this mutex. Acknowledged cancel cannot be followed by a commit.
     let mut queue = app.queue.lock().await;
     if cancel.is_cancelled() {
         return;
     }
-    if let Some(job) = queue
+    let Some(job) = queue
         .job
         .as_mut()
         .filter(|j| j.id == id && j.status == "running")
-    {
-        job.recount();
-        job.status = if job.failed > 0 {
-            "failed"
-        } else {
-            "completed"
+    else {
+        return;
+    };
+    let result = match result {
+        Ok(bytes) => {
+            let parent = PathBuf::from(&file.destination)
+                .parent()
+                .unwrap()
+                .to_path_buf();
+            match safe_parent(std::path::Path::new(&job.save_directory), &parent).await {
+                Ok(real) => {
+                    commit_pdf(&app, &file.paper(), &bytes, &real.join(&file.filename)).await
+                }
+                Err(e) => Err(e),
+            }
         }
-        .into();
-        if persist(&app, job).await.is_err() {
-            interrupt_remaining(job);
+        Err(e) => Err(e),
+    };
+    match result {
+        Ok(_) => {
+            job.items[index].status = "completed".into();
+            job.items[index].error = None
         }
+        Err((_, Json(e))) => {
+            job.items[index].status = "failed".into();
+            job.items[index].error = Some(e["error"].as_str().unwrap_or("下载失败").into())
+        }
+    }
+    job.recount();
+    if let Err((_, Json(e))) = persist(&app, job).await {
+        interrupt_remaining(job);
+        cancel.cancel();
+        job.items[index].error = Some(format!(
+            "文件操作已结束但队列落盘失败，请核对目标：{}",
+            e["error"]
+        ));
+        return;
     }
 }
 

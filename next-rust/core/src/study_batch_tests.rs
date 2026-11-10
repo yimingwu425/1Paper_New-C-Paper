@@ -104,6 +104,8 @@ async fn scenario(mode: &str) -> (App, u16, Arc<AtomicUsize>, tokio::task::JoinH
                 }
                 .into(),
                 source_url: format!("http://127.0.0.1:{port}/pdf/{}", e.filename),
+                source: default_paper_source(),
+                logical_path: None,
             },
         );
     }
@@ -403,4 +405,53 @@ async fn json_atomic_new_preserves_final_and_old_orphan() {
     assert_eq!(tokio::fs::read(&orphan).await.unwrap(), b"old json staging");
     server.abort();
     tokio::fs::remove_dir_all(app.root).await.unwrap();
+}
+
+#[tokio::test]
+async fn source_changes_cannot_bypass_pending_original_protection() {
+    let (app, port, count, server) = scenario("invalid").await;
+    let first = study_import_batch(State(app.clone()), HeaderMap::new(), request(port))
+        .await
+        .unwrap_err();
+    app.files.lock().await.clear();
+    for source in ["easypaper", "pastpapers", "papacambridge"] {
+        let result = study_import_batch(
+            State(app.clone()),
+            HeaderMap::new(),
+            Json(StudyBatch {
+                port,
+                confirmed: true,
+                ids: vec![format!("{source}~9709_s23_qp_12.pdf")],
+            }),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(result.0, StatusCode::CONFLICT);
+        assert_eq!(result.1 .0["receipt_id"], first.1 .0["receipt_id"]);
+    }
+    assert_eq!(count.load(Ordering::SeqCst), 1);
+    server.abort();
+    tokio::fs::remove_dir_all(app.root).await.unwrap();
+}
+#[tokio::test]
+async fn same_filename_from_two_sources_is_rejected_in_one_study_batch() {
+    let (app, port, count, server) = scenario("ok").await;
+    let result = study_import_batch(
+        State(app.clone()),
+        HeaderMap::new(),
+        Json(StudyBatch {
+            port,
+            confirmed: true,
+            ids: vec![
+                "9709_s23_qp_12.pdf".into(),
+                "easypaper~9709_s23_qp_12.pdf".into(),
+            ],
+        }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(result.0, StatusCode::BAD_REQUEST);
+    assert_eq!(count.load(Ordering::SeqCst), 0);
+    server.abort();
+    let _ = tokio::fs::remove_dir_all(app.root).await;
 }

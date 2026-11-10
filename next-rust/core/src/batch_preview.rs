@@ -5,6 +5,10 @@ pub(super) struct PreviewFile {
     pub(super) filename: String,
     pub(super) kind: String,
     pub(super) source_url: String,
+    #[serde(default = "default_paper_source")]
+    pub(super) source: String,
+    #[serde(default)]
+    pub(super) logical_path: Option<String>,
     pub(super) destination: String,
 }
 impl PreviewFile {
@@ -14,6 +18,8 @@ impl PreviewFile {
             filename: self.filename.clone(),
             kind: self.kind.clone(),
             source_url: self.source_url.clone(),
+            source: self.source.clone(),
+            logical_path: self.logical_path.clone(),
         }
     }
 }
@@ -26,6 +32,12 @@ pub(super) struct BatchPreview {
     pub(super) count: usize,
     pub(super) save_directory: String,
     pub(super) merge_folders: bool,
+    #[serde(default = "default_source_mode")]
+    pub(super) source_mode: String,
+    #[serde(default = "default_concurrency")]
+    pub(super) download_concurrency: usize,
+    #[serde(default = "default_rate")]
+    pub(super) requests_per_second: u32,
 }
 #[derive(Deserialize)]
 pub(super) struct PreviewRequest {
@@ -68,6 +80,8 @@ pub(super) fn freeze_file(p: &Paper, settings: &Settings) -> Result<PreviewFile,
         filename: p.filename.clone(),
         kind: p.kind.clone(),
         source_url: p.source_url.clone(),
+        source: p.source.clone(),
+        logical_path: p.logical_path.clone(),
         destination: path.to_string_lossy().into(),
     })
 }
@@ -91,6 +105,12 @@ async fn freeze(
         frozen.push(freeze_file(&p, &settings)?)
     }
     frozen.sort_by(|a, b| a.filename.cmp(&b.filename));
+    if frozen
+        .windows(2)
+        .any(|pair| pair[0].filename == pair[1].filename && pair[0].source != pair[1].source)
+    {
+        return Err(bad("同名文件来自不同题源；请为每份文件只选择一个来源"));
+    }
     frozen.dedup_by(|a, b| a.filename == b.filename);
     if frozen.len() > 5000 {
         return Err(bad("清单超过5000文件，请缩小范围"));
@@ -120,6 +140,9 @@ async fn freeze(
         queries,
         save_directory: settings.download_dir,
         merge_folders: settings.merge_folders,
+        source_mode: settings.source_mode,
+        download_concurrency: settings.download_concurrency,
+        requests_per_second: settings.requests_per_second,
     };
     let _guard = app.io.lock().await;
     atomic_new(
@@ -164,18 +187,21 @@ pub(super) async fn batch_preview(
         .collect();
     let app_ref = app.clone();
     let subject = req.subject.clone();
+    let mode = settings.source_mode.clone();
     let results: Vec<_> = futures_util::stream::iter(queries)
         .map(|(year, season)| {
             let app = app_ref.clone();
             let subject = subject.clone();
+            let mode = mode.clone();
             async move {
-                let result = search(
-                    State(app),
-                    Query(Search {
+                let result = search_with_mode(
+                    &app,
+                    &Search {
                         subject,
                         year,
                         season: season.clone(),
-                    }),
+                    },
+                    &mode,
                 )
                 .await;
                 (year, season, result)
@@ -204,9 +230,9 @@ fn aggregate_results(
                         if matches_selection(&p.filename,papers,include_ms){files.push(p);count+=1}
                     }
                 }
-                reports.push(json!({"year":year,"season":season,"status":if count>0{"ok"}else{"empty"},"file_count":count}));
+                reports.push(json!({"year":year,"season":season,"status":if count>0{"ok"}else{"empty"},"file_count":count,"source":value["source"],"source_mode":value["source_mode"],"attempts":value["attempts"]}));
             },
-            Err((_,Json(e)))=>reports.push(json!({"year":year,"season":season,"status":"failed","file_count":0,"error":e["error"]}))
+            Err((_,Json(e)))=>reports.push(json!({"year":year,"season":season,"status":"failed","file_count":0,"error":e["error"],"attempts":e["attempts"]}))
         }
     }
     reports.sort_by_key(|v| {
@@ -275,6 +301,9 @@ mod tests {
         let settings = Settings {
             download_dir: root.to_string_lossy().into(),
             merge_folders: true,
+            source_mode: default_source_mode(),
+            download_concurrency: default_concurrency(),
+            requests_per_second: default_rate(),
         };
         let preview = freeze(&app, settings.clone(), files, reports)
             .await
@@ -313,6 +342,9 @@ mod tests {
         let settings = Settings {
             download_dir: "/tmp/cpaper".into(),
             merge_folders: false,
+            source_mode: default_source_mode(),
+            download_concurrency: default_concurrency(),
+            requests_per_second: default_rate(),
         };
         for kind in ["ci", "gt", "er", "ir", "in", "sr"] {
             let filename = format!("9709_s23_{kind}.pdf");
@@ -321,6 +353,8 @@ mod tests {
                 filename: filename.clone(),
                 kind: kind.into(),
                 source_url: format!("https://cie.fraft.cn/obj/Common/Fetch/redir/{filename}"),
+                source: default_paper_source(),
+                logical_path: None,
             };
             assert!(freeze_file(&p, &settings)
                 .unwrap()
@@ -371,10 +405,15 @@ mod tests {
             filename: "9709_s23_qp_12.pdf".into(),
             kind: "qp".into(),
             source_url: "https://cie.fraft.cn/obj/Common/Fetch/redir/9709_s23_qp_12.pdf".into(),
+            source: default_paper_source(),
+            logical_path: None,
         };
         let first = Settings {
             download_dir: root.join("first").to_string_lossy().into(),
             merge_folders: false,
+            source_mode: default_source_mode(),
+            download_concurrency: default_concurrency(),
+            requests_per_second: default_rate(),
         };
         let preview=freeze(&app,first.clone(),vec![p.clone()],vec![json!({"year":2023,"season":"Jun","status":"ok","file_count":1}),json!({"year":2024,"season":"Nov","status":"failed","file_count":0,"error":"upstream"})]).await.unwrap();
         assert!(!preview.complete);
@@ -385,6 +424,9 @@ mod tests {
         let second = Settings {
             download_dir: root.join("second").to_string_lossy().into(),
             merge_folders: true,
+            source_mode: "easypaper".into(),
+            download_concurrency: 9,
+            requests_per_second: 11,
         };
         write_control(&app.root.join(".settings.json"), &second)
             .await
@@ -393,6 +435,9 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(loaded.save_directory, first.download_dir);
+        assert_eq!(loaded.source_mode, first.source_mode);
+        assert_eq!(loaded.download_concurrency, first.download_concurrency);
+        assert_eq!(loaded.requests_per_second, first.requests_per_second);
         assert!(freeze_file(&p, &second)
             .unwrap()
             .destination

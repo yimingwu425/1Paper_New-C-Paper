@@ -83,6 +83,8 @@ fn mock_app(body: Vec<u8>) -> (App, Paper) {
         filename: "9709_s23_qp_12.pdf".into(),
         kind: "qp".into(),
         source_url: format!("http://{addr}/test"),
+        source: default_paper_source(),
+        logical_path: None,
     };
     (
         App {

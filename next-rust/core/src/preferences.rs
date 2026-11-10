@@ -3,6 +3,37 @@ use super::*;
 pub(super) struct Settings {
     pub(super) download_dir: String,
     pub(super) merge_folders: bool,
+    #[serde(default = "default_source_mode")]
+    pub(super) source_mode: String,
+    #[serde(default = "default_concurrency")]
+    pub(super) download_concurrency: usize,
+    #[serde(default = "default_rate")]
+    pub(super) requests_per_second: u32,
+}
+pub(super) fn default_source_mode() -> String {
+    "auto".into()
+}
+pub(super) fn default_concurrency() -> usize {
+    4
+}
+pub(super) fn default_rate() -> u32 {
+    5
+}
+pub(super) fn validate_limits(source: &str, concurrency: usize, rate: u32) -> Result<(), ErrApi> {
+    if ![
+        "auto",
+        "frankcie",
+        "easypaper",
+        "pastpapers",
+        "papacambridge",
+    ]
+    .contains(&source)
+        || !(1..=16).contains(&concurrency)
+        || !(1..=20).contains(&rate)
+    {
+        return Err(bad("来源无效，下载并发须为1–16，请求速率须为1–20每秒"));
+    }
+    Ok(())
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct Favorite {
@@ -22,6 +53,9 @@ pub(super) async fn read_settings(app: &App) -> Result<Settings, ErrApi> {
                 .to_string_lossy()
                 .into(),
             merge_folders: false,
+            source_mode: default_source_mode(),
+            download_concurrency: default_concurrency(),
+            requests_per_second: default_rate(),
         });
     }
     read_control(&path).await
@@ -69,6 +103,11 @@ pub(super) async fn settings_put(
     Json(mut value): Json<Settings>,
 ) -> Result<Json<Settings>, ErrApi> {
     check_origin(&h)?;
+    validate_limits(
+        &value.source_mode,
+        value.download_concurrency,
+        value.requests_per_second,
+    )?;
     let path = PathBuf::from(&value.download_dir);
     if !path.is_absolute() {
         return Err(bad("保存目录须为绝对路径"));
@@ -172,9 +211,16 @@ pub(super) async fn choose_directory(
             json!({"cancelled":true,"settings":read_settings(&app).await?}),
         ));
     };
+    let path = tokio::fs::canonicalize(&path).await.map_err(upstream)?;
+    if !path.is_dir() {
+        return Err(bad("系统选择结果不是目录"));
+    }
+    // The native picker may stay open while source/rate settings change. Merge only its
+    // directory into the latest durable settings, inside the same persistence lock.
+    let _guard = app.io.lock().await;
     let mut settings = read_settings(&app).await?;
-    settings.download_dir = path;
-    let Json(settings) = settings_put(State(app), h, Json(settings)).await?;
+    settings.download_dir = path.to_string_lossy().into();
+    write_control(&app.root.join(".settings.json"), &settings).await?;
     Ok(Json(json!({"cancelled":false,"settings":settings})))
 }
 pub(super) async fn open_directory(
@@ -227,5 +273,33 @@ mod directory_tests {
                 .unwrap(),
             "/tmp/a'\";echo nope/"
         );
+    }
+}
+
+#[cfg(test)]
+mod settings_tests {
+    use super::*;
+    #[test]
+    fn old_settings_gain_safe_defaults_and_limits_are_strict() {
+        let old: Settings =
+            serde_json::from_value(json!({"download_dir":"/tmp/papers","merge_folders":false}))
+                .unwrap();
+        assert_eq!(old.source_mode, "auto");
+        assert_eq!(old.download_concurrency, 4);
+        assert_eq!(old.requests_per_second, 5);
+        for mode in [
+            "auto",
+            "frankcie",
+            "easypaper",
+            "pastpapers",
+            "papacambridge",
+        ] {
+            assert!(validate_limits(mode, 1, 1).is_ok());
+            assert!(validate_limits(mode, 16, 20).is_ok());
+        }
+        for (c, r) in [(0, 5), (17, 5), (4, 0), (4, 21)] {
+            assert!(validate_limits("auto", c, r).is_err());
+        }
+        assert!(validate_limits("unknown", 4, 5).is_err());
     }
 }

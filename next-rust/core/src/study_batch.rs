@@ -156,6 +156,9 @@ async fn replace_receipt(path: &std::path::Path, value: &Value) -> Result<(), Er
     let _ = tokio::fs::remove_file(&tmp).await;
     result.map_err(upstream)
 }
+fn original_name(id: &str) -> &str {
+    id.rsplit_once('~').map_or(id, |(_, name)| name)
+}
 // Call only while holding app.io, including the final check+create transaction.
 async fn prior_operation(app: &App, port: u16, ids: &[String]) -> Result<Option<Value>, ErrApi> {
     if !app.root.exists() {
@@ -185,7 +188,13 @@ async fn prior_operation(app: &App, port: u16, ids: &[String]) -> Result<Option<
             stored.push(id.to_owned());
         }
         stored.sort();
-        let overlap = stored.iter().any(|id| requested.contains(id));
+        // A provider change cannot evade an unresolved submission for the same original.
+        // Keep exact IDs for completed replays, but conservatively compare filenames for pending work.
+        let overlap = stored.iter().any(|id| {
+            requested
+                .iter()
+                .any(|r| original_name(id) == original_name(r))
+        });
         if old["operation_state"] != "complete" && overlap {
             return Err(blocked_uncertain(
                 "所选原件与该端口未决提交存在交集；请核对原回执，不重发",
@@ -212,7 +221,11 @@ pub(super) async fn study_import_batch(
         return Err(bad("一次预检选择1–20份文件"));
     }
     let mut unique = std::collections::HashSet::new();
-    if target.ids.iter().any(|id| !unique.insert(id)) {
+    if target
+        .ids
+        .iter()
+        .any(|id| !unique.insert(original_name(id)))
+    {
         return Err(bad("同一批次不能重复选择文件"));
     }
     study_base(target.port)?;

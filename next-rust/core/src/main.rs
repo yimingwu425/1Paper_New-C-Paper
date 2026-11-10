@@ -1,3 +1,7 @@
+mod provider_easypaper;
+mod provider_html;
+mod providers;
+use providers::*;
 mod legacy_data;
 use legacy_data::*;
 mod download_jobs;
@@ -56,6 +60,10 @@ struct Paper {
     filename: String,
     kind: String,
     source_url: String,
+    #[serde(default = "default_paper_source")]
+    source: String,
+    #[serde(default)]
+    logical_path: Option<String>,
 }
 #[derive(Serialize)]
 struct Group {
@@ -101,9 +109,7 @@ fn collect(v: &Value, out: &mut Vec<String>) {
     }
 }
 fn allowed(url: &reqwest::Url) -> bool {
-    url.scheme() == "https"
-        && url.port_or_known_default() == Some(443)
-        && url.host_str() == Some("cie.fraft.cn")
+    allowed_provider_url(url)
 }
 fn query_parts(q: &Search) -> Result<(&'static str, char), ErrApi> {
     if q.subject.len() != 4
@@ -121,66 +127,15 @@ fn query_parts(q: &Search) -> Result<(&'static str, char), ErrApi> {
 }
 async fn health() -> Json<Value> {
     Json(
-        json!({"status":"ok","version":"0.1.0","sources":["frankcie"],"study_connection":"manual-port-required"}),
+        json!({"status":"ok","version":"0.1.0","sources":["frankcie","easypaper","pastpapers","papacambridge"],"study_connection":"manual-port-required"}),
     )
 }
 async fn search(State(app): State<App>, Query(q): Query<Search>) -> Result<Json<Value>, ErrApi> {
-    let (season, prefix) = query_parts(&q)?;
-    let response = app
-        .client
-        .post("https://cie.fraft.cn/obj/Common/Fetch/renum")
-        .form(&[
-            ("subject", q.subject.clone()),
-            ("year", q.year.to_string()),
-            ("season", season.into()),
-        ])
-        .send()
-        .await
-        .map_err(|e| upstream(format!("{e:?}")))?
-        .error_for_status()
-        .map_err(upstream)?;
-    let v: Value = capped_json(response, 4 * 1024 * 1024).await?;
-    if !v.get("rows").is_some_and(Value::is_array) {
-        return Err(upstream(
-            "FrankCIE 返回的JSON缺少rows列表；未将源站错误当作空结果",
-        ));
-    }
-    let mut names = vec![];
-    collect(&v, &mut names);
-    names.sort();
-    names.dedup();
-    let sy = format!("{}{:02}", prefix, q.year % 100);
-    let mut groups: BTreeMap<String, Group> = BTreeMap::new();
-    let mut registry = app.files.lock().await;
-    for name in names {
-        let (subject, session, kind, number) = parse(&name).unwrap();
-        if subject != q.subject || session != sy {
-            continue;
-        }
-        let paper = Paper {
-            id: name.clone(),
-            filename: name.clone(),
-            kind,
-            source_url: format!("https://cie.fraft.cn/obj/Common/Fetch/redir/{name}"),
-        };
-        let id = format!("{subject}_{session}_{number}");
-        groups
-            .entry(id.clone())
-            .or_insert(Group {
-                id,
-                number,
-                files: vec![],
-            })
-            .files
-            .push(paper.clone());
-        registry.insert(name, paper);
-    }
-    Ok(Json(
-        json!({"source":"frankcie","groups":groups.into_values().collect::<Vec<_>>(),"query":{"subject":q.subject,"year":q.year,"season":season}}),
-    ))
+    let mode = read_settings(&app).await?.source_mode;
+    search_with_mode(&app, &q, &mode).await
 }
 async fn lookup(app: &App, id: &str) -> Result<Paper, ErrApi> {
-    if parse(id).is_none() {
+    if parse(id.rsplit_once('~').map_or(id, |(_, name)| name)).is_none() {
         return Err(bad("无效文件标识"));
     }
     app.files
@@ -193,19 +148,24 @@ async fn lookup(app: &App, id: &str) -> Result<Paper, ErrApi> {
 async fn pdf(app: &App, p: &Paper) -> Result<Vec<u8>, ErrApi> {
     let response = app
         .client
-        .get(&p.source_url)
+        .get(download_url(p)?)
         .send()
         .await
-        .map_err(|e| upstream(format!("{e:?}")))?
+        .map_err(|_| upstream("PDF请求失败"))?
         .error_for_status()
-        .map_err(upstream)?;
+        .map_err(|e| {
+            upstream(format!(
+                "PDF HTTP错误：{}",
+                e.status().map(|s| s.as_u16()).unwrap_or(0)
+            ))
+        })?;
     if response.content_length().unwrap_or(0) > 25 * 1024 * 1024 {
         return Err(upstream("PDF 超过 25 MiB"));
     }
     let mut chunks = response.bytes_stream();
     let mut bytes = Vec::new();
     while let Some(chunk) = chunks.next().await {
-        let chunk = chunk.map_err(upstream)?;
+        let chunk = chunk.map_err(|_| upstream("PDF流读取失败"))?;
         if bytes.len() + chunk.len() > 25 * 1024 * 1024 {
             return Err(upstream("PDF 超过 25 MiB"));
         }

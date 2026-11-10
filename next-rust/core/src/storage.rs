@@ -47,6 +47,16 @@ pub(super) async fn verified_pdf_at(path: &std::path::Path, hash: &str) -> Optio
     }
     Some(bytes.len() as u64)
 }
+pub(super) fn record_verifies_source(record: &Value, source_url: &str) -> bool {
+    record["source_url"] == source_url
+        || record["verified_sources"]
+            .as_array()
+            .is_some_and(|origins| {
+                origins
+                    .iter()
+                    .any(|origin| origin["source_url"] == source_url)
+            })
+}
 pub(super) async fn cached_saved(app: &App, p: &Paper) -> Result<Option<Value>, ErrApi> {
     let record_path = app.root.join(format!("{}.download.json", p.filename));
     if !record_path.exists() {
@@ -59,7 +69,7 @@ pub(super) async fn cached_saved(app: &App, p: &Paper) -> Result<Option<Value>, 
     if !path.is_absolute()
         || path.file_name().and_then(|n| n.to_str()) != Some(p.filename.as_str())
         || record["filename"] != p.filename
-        || record["source_url"] != p.source_url
+        || !record_verifies_source(&record, &p.source_url)
     {
         return Ok(None);
     }
@@ -128,7 +138,7 @@ pub(super) async fn commit_pdf(
         result.map_err(upstream)?;
     }
     let record_path = app.root.join(format!("{}.download.json", p.filename));
-    let record = json!({"id":p.id,"filename":p.filename,"path":dest,"sha256":hash,"source":"frankcie","source_url":p.source_url,"bytes":bytes.len(),"saved_at":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()});
+    let mut record = json!({"id":p.id,"filename":p.filename,"path":dest,"sha256":hash,"source":p.source,"source_url":p.source_url,"bytes":bytes.len(),"saved_at":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()});
     if tokio::fs::try_exists(&record_path)
         .await
         .map_err(upstream)?
@@ -147,7 +157,21 @@ pub(super) async fn commit_pdf(
         if old["sha256"] != record["sha256"] || old["filename"] != record["filename"] {
             return Err(err(StatusCode::CONFLICT, "PDF已保存，但已有下载记录不同"));
         }
-        if old["path"] != record["path"] {
+        if old["path"] != record["path"]
+            || old["source_url"] != record["source_url"]
+            || old["id"] != record["id"]
+        {
+            let mut origins = old["verified_sources"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            for origin in [&old, &record] {
+                let entry = json!({"id":origin["id"],"source":origin["source"],"source_url":origin["source_url"]});
+                if !origins.contains(&entry) {
+                    origins.push(entry);
+                }
+            }
+            record["verified_sources"] = json!(origins);
             write_control(&record_path, &record).await?;
         }
     } else {
@@ -273,7 +297,7 @@ pub(super) async fn handoff(
     check_origin(&h)?;
     let p = lookup(&app, &id).await?;
     let saved = save(&app, &p).await?;
-    let manifest = json!({"schema":"cpaper.study-handoff.v1","stable_id":format!("cambridge:{}",p.filename),"source":"frankcie","source_url":p.source_url,"filename":p.filename,"kind":p.kind,"local_file":saved["path"],"sha256":saved["sha256"],"review_status":"unreviewed","imported":false});
+    let manifest = json!({"schema":"cpaper.study-handoff.v1","stable_id":format!("cambridge:{}",p.filename),"source":p.source,"source_url":p.source_url,"filename":p.filename,"kind":p.kind,"local_file":saved["path"],"sha256":saved["sha256"],"review_status":"unreviewed","imported":false});
     let path = app.root.join(format!("{}.handoff.json", p.filename));
     let _lock = app.io.lock().await;
     let encoded = serde_json::to_vec_pretty(&manifest).unwrap();

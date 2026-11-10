@@ -1,0 +1,30 @@
+name: Verify Rust continuation
+on:
+  push:
+    branches: ['cloud/preserve-rust-*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-rust-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: next-rust/web/package-lock.json
+      - name: Install locked test dependencies
+        run: |
+          rustup update stable --no-self-update
+          rustup default stable
+          npm --prefix next-rust/web ci
+          cargo fetch --locked --manifest-path next-rust/core/Cargo.toml
+      - name: Run isolated offline regressions and builds
+        run: bash next-rust/scripts/verify-cloud.sh

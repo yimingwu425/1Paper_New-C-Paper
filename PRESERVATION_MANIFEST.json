@@ -1,0 +1,125 @@
+{
+  "date": "2026-11-10",
+  "repository": "yimingwu425/C-Paper-Rust",
+  "base_commit": "58ca512c6f05e94b8b7d100215d852aa00390c11",
+  "source_file_count": 29,
+  "source_files": [
+    {
+      "path": "next-rust/core/Cargo.lock",
+      "sha256": "666b7b3191ed44bd8515192411ab8ee43ebbef7eb5731e3ec51048937c1b48a1"
+    },
+    {
+      "path": "next-rust/core/Cargo.toml",
+      "sha256": "07d573afc1d5539e60aff8ab56893935bead23ba06e0a89e7a0a25de23413873"
+    },
+    {
+      "path": "next-rust/core/src/batch_preview.rs",
+      "sha256": "5a0dc73182c734146ecfa66c1c96e5445a98a914f0a5dde36168ef5052c4f5be"
+    },
+    {
+      "path": "next-rust/core/src/catalog.rs",
+      "sha256": "4f4113d6fbc46013c7538f10789e58ff314372d53e2757cdf7fe6b51e0981851"
+    },
+    {
+      "path": "next-rust/core/src/download_jobs.rs",
+      "sha256": "e2774d0d9705cfd0e1c532a4c0f9189c5ac7cfd1160b972777d587fb31fb9f15"
+    },
+    {
+      "path": "next-rust/core/src/download_jobs_tests.rs",
+      "sha256": "b65b91291594d9572b03d417c5543a8faadf841f62fe2a673b6dde24f6f774c4"
+    },
+    {
+      "path": "next-rust/core/src/main.rs",
+      "sha256": "3b86bdb10c62cfbfac08328b3030210bfd07babf8337f184b1ed8d7b71d2360f"
+    },
+    {
+      "path": "next-rust/core/src/preferences.rs",
+      "sha256": "6fb001f357ce29a2f3920c00acf91729ee38dabbabb5fa97ecd285764b0e402c"
+    },
+    {
+      "path": "next-rust/core/src/storage.rs",
+      "sha256": "3cec9551928329c58938e7ba686a082be0ce3e2001665e29e121aa7f1b312827"
+    },
+    {
+      "path": "next-rust/core/src/study_batch.rs",
+      "sha256": "976024b26d4d2c8754e806d5e425098e8cedd74d8b5f5cb69b63f857688e27ed"
+    },
+    {
+      "path": "next-rust/core/src/study_batch_tests.rs",
+      "sha256": "2091b2662c270f9343f6a7ed8336c2ccf271a1f19bdd7adda8092ddcaf125bdb"
+    },
+    {
+      "path": "next-rust/core/src/tests.rs",
+      "sha256": "162ddeb9646940fa83360fddc2a23aba71003dab1298979084547ad2d028b393"
+    },
+    {
+      "path": "next-rust/web/src/App.tsx",
+      "sha256": "cb5a4405e961761b26da920776036232d95dfc7967b58027020964c482fbe5b9"
+    },
+    {
+      "path": "next-rust/web/src/BatchPage.tsx",
+      "sha256": "9e9095941ed0161e22f4eacbc72df73110933f944f432ff03dec1812c00bbb61"
+    },
+    {
+      "path": "next-rust/web/src/DownloadPlan.tsx",
+      "sha256": "0798a6c8ac73f9c535057a357ff4eebb2cd18971ca5465675cd145926bd741e5"
+    },
+    {
+      "path": "next-rust/web/src/Preferences.tsx",
+      "sha256": "7be881d566f76010f1667eaddd898fdebba99ec15399f5bb46c03d3303af928f"
+    },
+    {
+      "path": "next-rust/web/src/QueuePanel.tsx",
+      "sha256": "4aadccd7f6ad4643bbf73a90d23d4137703d42b0b7006f18280b0fc70fbc2c56"
+    },
+    {
+      "path": "next-rust/web/src/SubjectSearch.tsx",
+      "sha256": "ec2565a2a503cea3adc3bc776b923a4877cba65f6c6c84997992a412f6268844"
+    },
+    {
+      "path": "next-rust/web/src/api.ts",
+      "sha256": "5c731c72ddf6d84c2b400864b035810329d71c01147bd87f5775786c1ceff3ca"
+    },
+    {
+      "path": "next-rust/web/src/style.css",
+      "sha256": "c4893ddd2807b5c3f536c4923fda86ab7300e01845c4f599d1b6291926f2d0e1"
+    },
+    {
+      "path": "next-rust/web/src/useCatalogue.ts",
+      "sha256": "fe22288d62ca713e0b586d14f38ece0b747b435fbcaa8018f7621444c80616cd"
+    },
+    {
+      "path": "next-rust/core/src/provider_easypaper.rs",
+      "sha256": "fa2e677c0a85c657579a8235048bd40997410c43de19eb976b1e8dc7f08bb5ca"
+    },
+    {
+      "path": "next-rust/core/src/provider_html.rs",
+      "sha256": "44070b621ab273498edb6693ec852fd1ff58e5068abfc1c0966ff41dc1b709ca"
+    },
+    {
+      "path": "next-rust/core/src/providers.rs",
+      "sha256": "44dd04d901de2b0ca2f3b54eb08acb45d1b298bdabdfddc27870cd94534d8ddf"
+    },
+    {
+      "path": "next-rust/scripts/verify-cloud.sh",
+      "sha256": "212545b902edd97ef8167e034a10a4dbd102c3b107bb46bcb5c5b6ef710b5ebe"
+    },
+    {
+      "path": "next-rust/web/src/SourceAttempts.tsx",
+      "sha256": "9016635741677fb40cf73712f978e47d9118af5e23a166bd70ab90eb1d1f0127"
+    },
+    {
+      "path": "next-rust/web/src/SourceSettings.tsx",
+      "sha256": "ce3603ae4b7c1ef80cdfc5552c8acac8bcc68b9d57a4dad5bac215d88384aef4"
+    },
+    {
+      "path": "next-rust/web/src/settings.ts",
+      "sha256": "c012913fbc31dc80aecb2a508338d7f2d1b9cdaa9b3db9f2f1d77a8475b8e2db"
+    },
+    {
+      "path": "next-rust/web/src/sources.test.tsx",
+      "sha256": "9d6390820f218a559fc3f63095964ba59aa820ed3d67c42e18a93642815e0424"
+    }
+  ],
+  "exclusions": "No user downloads, user databases, credentials, runtime state, private logs, screenshots, build outputs, or old Swift project files."
+}
