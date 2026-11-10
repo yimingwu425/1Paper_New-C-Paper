@@ -26,5 +26,8 @@ jobs:
           rustup default stable
           npm --prefix next-rust/web ci
           cargo fetch --locked --manifest-path next-rust/core/Cargo.toml
+      - name: Validate native and web icon resources
+        run: python3 next-rust/scripts/app-icons.py --check
       - name: Run isolated offline regressions and builds
         run: bash next-rust/scripts/verify-cloud.sh
+

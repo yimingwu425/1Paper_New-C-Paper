@@ -1,1 +1,27 @@
-{"$schema":"https://schema.tauri.app/config/2","productName":"C-Paper Next","version":"0.1.0","identifier":"local.cpaper.next","build":{"frontendDist":"assets"},"app":{"windows":[],"security":{"capabilities":[],"csp":"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src 'self' blob:; object-src 'self' blob:"}},"bundle":{"active":false}}
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "C-Paper Next",
+  "version": "0.1.0",
+  "identifier": "local.cpaper.next",
+  "build": {
+    "frontendDist": "assets"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "capabilities": [],
+      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src 'self' blob:; object-src 'self' blob:"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": [
+      "icons/v2/icon.png",
+      "icons/v2/32x32.png",
+      "icons/v2/128x128.png",
+      "icons/v2/128x128@2x.png",
+      "icons/v2/icon.icns",
+      "icons/v2/icon.ico"
+    ]
+  }
+}
