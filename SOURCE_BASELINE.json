@@ -1,0 +1,193 @@
+{
+  "captured_date": "2026-11-10",
+  "source_archive_sha256": "024af47e1536d2f5a38904f84945d62af5d22aecb82e00638c7d544c835f253e",
+  "upstream_reference": "dcf170a4265859e6e21c3df8920a5414204e0cc4",
+  "local_checkpoint": "55698acd7650cbcadb1b0a7fd9c776ab75363134",
+  "source_files": [
+    {
+      "path": "next-rust/.gitignore",
+      "sha256": "4c4c456bd4b593c51aaeeb45f62565413922b075500955aec0a1161a777cbf69"
+    },
+    {
+      "path": "next-rust/core/Cargo.lock",
+      "sha256": "f65e1cf12b2aa85f2af3bad32911e53d96f37591f14dc158533fbdc44c7cf399"
+    },
+    {
+      "path": "next-rust/core/Cargo.toml",
+      "sha256": "b75f18cbf000948b71cc1858e179904fedf29308773bd150c6d190d6c547edac"
+    },
+    {
+      "path": "next-rust/core/src/batch_preview.rs",
+      "sha256": "9fe494a43b173a4b858e8e255ee82fc17eb44bef1ffd7005b8f1eeaa120025d0"
+    },
+    {
+      "path": "next-rust/core/src/catalog.rs",
+      "sha256": "b12b2ef801d6076d0385070fe1a347b53a07cea9aed15ca95fd761e9f3c7c5bd"
+    },
+    {
+      "path": "next-rust/core/src/download_jobs.rs",
+      "sha256": "1b6fc6482a3217935c8765471650fb22851295a2b05cbb1e9f9cba6e270476fd"
+    },
+    {
+      "path": "next-rust/core/src/download_jobs_tests.rs",
+      "sha256": "502624d8f0661708ca7b94124d6019ca606819fb5cd298c4c6177a3fb87d51b6"
+    },
+    {
+      "path": "next-rust/core/src/legacy_data.rs",
+      "sha256": "1f001e2db45db046b4ed0420ee61b9f71f4e146949d84373fc4cf807ee5ad6ff"
+    },
+    {
+      "path": "next-rust/core/src/main.rs",
+      "sha256": "8cd7bba97323dfaed195ea78a192b54845cab7bfcc8f919566e8e74a272c7507"
+    },
+    {
+      "path": "next-rust/core/src/preferences.rs",
+      "sha256": "a1e558b04e12b652aabd13f84ec84ae0ca4a8a09b4f257dc7ffb24d7ed2d74d8"
+    },
+    {
+      "path": "next-rust/core/src/storage.rs",
+      "sha256": "0f295ca8f9d536a5863f376efc4917d64c050290e04579154529c55b0e33098a"
+    },
+    {
+      "path": "next-rust/core/src/study.rs",
+      "sha256": "5e0c68f27c4e85c34deb486fffb02956b8d4ebff6eaa25ed493cbcfd9dbd5ce0"
+    },
+    {
+      "path": "next-rust/core/src/study_batch.rs",
+      "sha256": "6c6293df73ec0570cc2c44ff8c3110670895bf0c5686baf8639b630a78a8c0bb"
+    },
+    {
+      "path": "next-rust/core/src/study_batch_tests.rs",
+      "sha256": "785b06e69f8012459668dd14257f40f1ba6f5c1c0beb62f0a8f2420e0de96d23"
+    },
+    {
+      "path": "next-rust/core/src/tests.rs",
+      "sha256": "e4b8ad9b161fd36e6b63cad4f69ebeae00ab0ba1bea630aeedcef6f15dc0980c"
+    },
+    {
+      "path": "next-rust/desktop/Cargo.lock",
+      "sha256": "0c406b9e13505b8beb6a57537a6fb7ef1548f5b3be1195733784f3b0e292950b"
+    },
+    {
+      "path": "next-rust/desktop/Cargo.toml",
+      "sha256": "536e0574974d09435077155f99676ed161a933f33850c5f4c35fc45a9c818314"
+    },
+    {
+      "path": "next-rust/desktop/build.rs",
+      "sha256": "8af41c0062014fc594e4bb9899e60ee9930ab57d4cf0c73041ff557d6ec736e6"
+    },
+    {
+      "path": "next-rust/desktop/icons/icon.png",
+      "sha256": "ad8b3598576d2df5232375865a7ce8ba25c2579bd8802586cd851bdb891ceb14"
+    },
+    {
+      "path": "next-rust/desktop/src/main.rs",
+      "sha256": "35e137dd1a9e0ea7a81306ade2f6b3a3a23b831d8e6ff58b9db0315220cb3e33"
+    },
+    {
+      "path": "next-rust/desktop/tauri.conf.json",
+      "sha256": "8cb02951c3778a7f4b418c7014723c55bd997d966a34f9e4409273c4d6e358d4"
+    },
+    {
+      "path": "next-rust/scripts/assemble-desktop.sh",
+      "sha256": "830ba7403bac611cace23a942060bc5aa86b95daef84b59c86e0d17aef0fef02"
+    },
+    {
+      "path": "next-rust/scripts/desktop-local.sh",
+      "sha256": "3d27e542ecdfa0c4f640e400397037d1eff1259b2b74ad699534575e746b4452"
+    },
+    {
+      "path": "next-rust/scripts/run-local.sh",
+      "sha256": "7808ee0f006f8ad97e31e702f03b0d5dafb605e0525fc5cd5c2c1202697bf032"
+    },
+    {
+      "path": "next-rust/scripts/verify-local.sh",
+      "sha256": "508aed49093f25db511ec9532fb6d47fe9feff4a8c4dc3c857757f058d5ca39f"
+    },
+    {
+      "path": "next-rust/web/index.html",
+      "sha256": "c65a7dcf30cb6cd3da68635590af2c40328013777a918187f59077131b527c4d"
+    },
+    {
+      "path": "next-rust/web/package-lock.json",
+      "sha256": "48a75b0a300f6b615163ac8f7c0af74a3f67d9ef444702f30640dfe8e0673dbd"
+    },
+    {
+      "path": "next-rust/web/package.json",
+      "sha256": "30d874dbcfdf0bda57a3ffe5e5c46ae4a337e13a2da5425cd12ae2ff3db60bf0"
+    },
+    {
+      "path": "next-rust/web/public/cpaper.png",
+      "sha256": "5ce3e8085f7a0d9875943a15da6e88938f5ff7b976d19a4ac2fc0141b5cb40f6"
+    },
+    {
+      "path": "next-rust/web/src/App.tsx",
+      "sha256": "2b738e6acc7b3b241feb9098f40e4cc69ce3f54301d3c271e871ae330f849363"
+    },
+    {
+      "path": "next-rust/web/src/BatchPage.tsx",
+      "sha256": "7b8b64bee20ec04e9c027ac0fc61c5bc36c67ee9aab0f4acbf8975492cff5ea1"
+    },
+    {
+      "path": "next-rust/web/src/DownloadPlan.tsx",
+      "sha256": "e7e795354823ed70978b6fea0494de76917555b3455d329729930b3e1d35c0dd"
+    },
+    {
+      "path": "next-rust/web/src/LegacyData.tsx",
+      "sha256": "9d6183f3fee1211ddaeef24fd498bc07bd655b5dd46087c82e6ecab7e1369088"
+    },
+    {
+      "path": "next-rust/web/src/Preferences.tsx",
+      "sha256": "92735bdc1c840c627f828296c0a5be32eb059184c3fd272600325075891cb000"
+    },
+    {
+      "path": "next-rust/web/src/QueuePanel.tsx",
+      "sha256": "4d411b1b5dead39b5573b28140266f6f62ec5548dadc42ee1268cb4479f0ad57"
+    },
+    {
+      "path": "next-rust/web/src/StudyPrecheck.tsx",
+      "sha256": "042f0d45fc6eaa2cc4eaeeb45b2e26b4b265aba00225a0da201386e77b9521aa"
+    },
+    {
+      "path": "next-rust/web/src/SubjectSearch.tsx",
+      "sha256": "bcd6623411518d6570d31eda51b07555d362c6ce529fe50c3db1fc327de17175"
+    },
+    {
+      "path": "next-rust/web/src/api.ts",
+      "sha256": "ccb090cc7610829c44e60edafa0fa64fcec998fddda04e85f6322e15b83a4a06"
+    },
+    {
+      "path": "next-rust/web/src/app.test.tsx",
+      "sha256": "f72592e3c25b97a96188df86d4076e85d851fda02ba1484d99a9ab41ed095c8d"
+    },
+    {
+      "path": "next-rust/web/src/main.tsx",
+      "sha256": "da21853fb55f7b734a86b1a5af5f7c76d8d0f36b56efad083a7d158d2ba25da0"
+    },
+    {
+      "path": "next-rust/web/src/parity.test.tsx",
+      "sha256": "f0ce75ab4dcee4099a155974904f6db2260301752c9c60c2e9cbe73f1c74a6fe"
+    },
+    {
+      "path": "next-rust/web/src/study.test.tsx",
+      "sha256": "6bca2278e05f5b162fd0bcf2f848f052dab5090a445fb71f03e41b9d2e142f8a"
+    },
+    {
+      "path": "next-rust/web/src/style.css",
+      "sha256": "e2bdc6bb4aa133f0525392e3bf9570e0b6180ee411d57853de2e92e410900725"
+    },
+    {
+      "path": "next-rust/web/src/useCatalogue.ts",
+      "sha256": "c0feb266dcbebace0e04e40a8d9a9e9309697ba4d54a717fa5840c8c737cb889"
+    },
+    {
+      "path": "next-rust/web/tsconfig.json",
+      "sha256": "c6f3a387603868de3c45f404ba1cace8fbc7143b8c1a138613dc4cb6be3bf65a"
+    },
+    {
+      "path": "next-rust/web/vite.config.ts",
+      "sha256": "599f9eee54e4b4c4c72db5970f9f2959b798d9adb92a5dcec2acdc23f431e1dd"
+    }
+  ],
+  "excluded": "User data, credentials, screenshots, private logs, local planning documents and build caches."
+}

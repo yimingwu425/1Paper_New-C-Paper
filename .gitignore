@@ -1,0 +1,15 @@
+**/target/
+**/node_modules/
+**/dist/
+**/*.app/
+**/.DS_Store
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.sqlite*
+**/*.db
+**/*.log
+next-rust/data/
+next-rust/verification/
+!next-rust/verification/README.md

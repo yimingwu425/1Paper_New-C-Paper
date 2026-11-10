@@ -1,0 +1,13 @@
+**/target/
+**/node_modules
+**/dist/
+data/
+verification/*data*/
+*.log
+
+**/*.app/
+verification/study-integration/
+verification/**/__pycache__/
+verification/**/data/
+verification/**/output-*/
+verification/**/legacy-preview.json
